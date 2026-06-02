@@ -91,6 +91,15 @@
   .panel-h .num{color:var(--amber);font-family:'Share Tech Mono',monospace}
   .panel-b{padding:18px}
 
+  /* API Key Input */
+  .api-input{
+    width: 100%; padding: 12px; margin-bottom: 16px;
+    background: var(--bg); border: 1px solid var(--line);
+    color: var(--ink); border-radius: 9px;
+    font-family: 'Share Tech Mono', monospace; font-size: .85rem;
+  }
+  .api-input:focus{ outline: none; border-color: var(--amber); }
+
   /* Tabs */
   .tabs{display:flex;gap:8px;margin-bottom:16px}
   .tab{
@@ -197,19 +206,8 @@
   .err{
     background:rgba(255,77,77,.1);border:1px solid var(--red);color:#ffb3b3;
     padding:12px 14px;border-radius:10px;font-size:.82rem;margin-top:14px;line-height:1.5;
+    word-break: break-word;
   }
-
-  /* live loop controls */
-  .live-bar{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
-  .toggle{
-    display:flex;align-items:center;gap:9px;font-size:.78rem;color:var(--ink-dim);
-    letter-spacing:1px;cursor:pointer;user-select:none;
-  }
-  .switch{width:42px;height:23px;border-radius:12px;background:#0a0c10;border:1px solid var(--line);position:relative;transition:.2s}
-  .switch::after{content:"";position:absolute;width:17px;height:17px;border-radius:50%;background:var(--ink-dim);top:2px;left:2px;transition:.2s}
-  .toggle input{display:none}
-  .toggle input:checked + .switch{background:rgba(63,245,139,.2);border-color:var(--green)}
-  .toggle input:checked + .switch::after{left:21px;background:var(--green);box-shadow:0 0 8px var(--green)}
 
   footer{margin-top:30px;text-align:center;color:var(--ink-dim);font-size:.72rem;letter-spacing:1px;line-height:1.6}
   footer code{font-family:'Share Tech Mono',monospace;color:var(--amber-dim)}
@@ -232,17 +230,17 @@
 
   <div class="grid">
 
-    <!-- ============ INPUT PANEL ============ -->
     <section class="panel">
       <div class="panel-h"><span>Input Source</span><span class="num">/ 01</span></div>
       <div class="panel-b">
+
+        <input type="password" id="apiKey" class="api-input" placeholder="Enter Anthropic API Key (sk-ant-...)">
 
         <div class="tabs">
           <button class="tab active" id="tabUpload">Photo Upload</button>
           <button class="tab" id="tabCam">Live Camera</button>
         </div>
 
-        <!-- Upload -->
         <div id="uploadWrap">
           <div class="drop" id="drop">
             <div class="ic">⬆</div>
@@ -251,7 +249,6 @@
           <input type="file" id="file" accept="image/*" class="hidden">
         </div>
 
-        <!-- Camera -->
         <div id="camWrap">
           <video id="video" autoplay playsinline muted></video>
           <div class="cam-row">
@@ -270,7 +267,6 @@
       </div>
     </section>
 
-    <!-- ============ READOUT PANEL ============ -->
     <section class="panel">
       <div class="panel-h"><span>Reading</span><span class="num">/ 02</span></div>
       <div class="panel-b">
@@ -322,7 +318,7 @@
   <footer>
     ODOMETRA reads total vehicle mileage from both mechanical-roller &amp; digital odometers via AI vision.
     <span class="footdash"></span> Best results: clear, straight-on, well-lit shots.<br>
-    Powered by <code>claude-sonnet-4</code> vision · readings are estimates, verify before any official use.
+    Powered by <code>Claude 3.5 Sonnet</code> vision · readings are estimates, verify before any official use.
   </footer>
 </div>
 
@@ -331,7 +327,7 @@
 <script>
 const $ = id => document.getElementById(id);
 
-let currentImageData = null;   // base64 (no prefix)
+let currentImageData = null;   
 let currentMime = 'image/jpeg';
 let stream = null;
 
@@ -342,7 +338,7 @@ const uploadWrap = $('uploadWrap'), camWrap = $('camWrap');
 tabUpload.onclick = () => {
   tabUpload.classList.add('active'); tabCam.classList.remove('active');
   uploadWrap.style.display = 'block'; camWrap.style.display = 'none';
-  stopLive(); stopCamera(); resetPreview();
+  stopCamera(); resetPreview();
 };
 tabCam.onclick = () => {
   tabCam.classList.add('active'); tabUpload.classList.remove('active');
@@ -403,8 +399,6 @@ camShot.onclick = () => {
   if (dataUrl){ showPreview(dataUrl); }
 };
 
-/* ---------- (live continuous mode removed: odometer changes too slowly) ---------- */
-function stopLive(){ /* no-op retained for safe cleanup calls */ }
 function stopCamera(){
   if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
   camShot.disabled = true; camStart.textContent = 'Start Camera';
@@ -433,12 +427,15 @@ function showErr(msg){ $('errBox').innerHTML = '<div class="err">⚠ '+msg+'</di
 function clearErr(){ $('errBox').innerHTML=''; }
 
 /* ---------- Analyze via Claude vision ---------- */
-$('analyzeBtn').onclick = () => analyze(false);
+$('analyzeBtn').onclick = () => analyze();
 
-async function analyze(isLive){
+async function analyze(){
+  const apiKey = $('apiKey').value.trim();
+  if (!apiKey) { showErr('Please enter your Anthropic API Key at the top first.'); return; }
   if (!currentImageData){ showErr('No image to analyze.'); return; }
+  
   clearErr();
-  if (!isLive) showLoading();
+  showLoading();
 
   const prompt =
 `You are a precise ODOMETER-reading vision system. Report the vehicle's TOTAL lifetime mileage (the main ODO reading).
@@ -468,11 +465,18 @@ Respond with ONLY a JSON object, no markdown, no extra text:
 }`;
 
   try{
-    const res = await fetch("https://api.anthropic.com/v1/messages",{
+    // Using a CORS proxy because Anthropic blocks direct browser API calls
+    const proxyUrl = "https://corsproxy.io/?https://api.anthropic.com/v1/messages";
+    
+    const res = await fetch(proxyUrl, {
       method:"POST",
-      headers:{ "Content-Type":"application/json" },
+      headers:{ 
+        "Content-Type":"application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
       body: JSON.stringify({
-        model:"claude-sonnet-4-20250514",
+        model:"claude-3-5-sonnet-20241022",
         max_tokens:1000,
         messages:[{
           role:"user",
@@ -484,7 +488,7 @@ Respond with ONLY a JSON object, no markdown, no extra text:
       })
     });
 
-    if (!res.ok){ throw new Error('API returned '+res.status); }
+    if (!res.ok){ throw new Error('API returned '+res.status + ' - Check your API Key.'); }
     const data = await res.json();
     const text = (data.content||[]).map(b=>b.type==='text'?b.text:'').join('').trim();
     const clean = text.replace(/```json|```/g,'').trim();
@@ -494,16 +498,15 @@ Respond with ONLY a JSON object, no markdown, no extra text:
       const m = clean.match(/\{[\s\S]*\}/);
       if (m) parsed = JSON.parse(m[0]); else throw new Error('Could not parse model response.');
     }
-    render(parsed, isLive);
+    render(parsed);
   }catch(err){
-    if (!isLive) showEmpty();
-    showErr('Analysis failed: '+err.message+'. Try a clearer image.');
-    if (isLive) stopLive();
+    showEmpty();
+    showErr('Analysis failed: '+err.message);
   }
 }
 
 /* ---------- Render result ---------- */
-function render(r, isLive){
+function render(r){
   showResult();
   const rValue=$('rValue'), rUnit=$('rUnit'), rLabel=$('rLabel');
 
@@ -512,14 +515,12 @@ function render(r, isLive){
     rLabel.textContent = 'No Reading Detected';
   } else {
     const v = Number(r.value);
-    // format with thousands separators; keep one decimal if present
     const formatted = Number.isInteger(v)
       ? v.toLocaleString('en-US')
       : v.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
     rValue.textContent = formatted;
-    rLabel.textContent = isLive ? 'Live Mileage' : 'Total Mileage';
+    rLabel.textContent = 'Total Mileage';
   }
-  rValue.classList.toggle('live', !!isLive);
 
   rUnit.textContent = (r.unit||'unknown').toUpperCase();
 
@@ -537,7 +538,7 @@ function render(r, isLive){
 }
 
 /* cleanup on unload */
-window.addEventListener('beforeunload', () => { stopLive(); stopCamera(); });
+window.addEventListener('beforeunload', () => { stopCamera(); });
 </script>
 </body>
 </html>
