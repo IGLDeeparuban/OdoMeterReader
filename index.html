@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ODOMETRA — Odometer Reader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Share+Tech+Mono&family=Oxanium:wght@500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c10;
+    --panel:#12161d;
+    --panel-2:#171c25;
+    --line:#232b38;
+    --amber:#ffb02e;
+    --amber-dim:#7a5414;
+    --green:#3ff58b;
+    --green-dim:#155f37;
+    --red:#ff4d4d;
+    --ink:#e7edf5;
+    --ink-dim:#7c8aa0;
+    --carbon:
+      repeating-linear-gradient(45deg,#0d1014 0 6px,#0a0c10 6px 12px),
+      repeating-linear-gradient(-45deg,#0d1014 0 6px,#0a0c10 6px 12px);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{
+    font-family:'Chakra Petch',sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    background-image:
+      radial-gradient(900px 500px at 80% -10%,rgba(255,176,46,.07),transparent),
+      radial-gradient(700px 500px at 0% 110%,rgba(63,245,139,.06),transparent),
+      var(--carbon);
+    background-attachment:fixed;
+    padding:28px 18px 70px;
+  }
+  .wrap{max-width:1080px;margin:0 auto}
+
+  /* Header */
+  header{
+    display:flex;align-items:flex-end;justify-content:space-between;
+    border-bottom:1px solid var(--line);padding-bottom:18px;margin-bottom:26px;
+    flex-wrap:wrap;gap:14px;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{
+    width:46px;height:46px;border-radius:11px;flex-shrink:0;
+    background:linear-gradient(145deg,#1b2230,#0d1117);
+    border:1px solid var(--line);position:relative;
+    box-shadow:inset 0 0 16px rgba(255,176,46,.12);
+  }
+  .logo::before{
+    content:"";position:absolute;inset:9px;border-radius:50%;
+    border:2px solid var(--amber);border-right-color:transparent;border-bottom-color:transparent;
+    transform:rotate(-45deg);
+  }
+  .logo::after{
+    content:"";position:absolute;left:50%;top:50%;width:2px;height:13px;
+    background:var(--red);transform-origin:bottom center;
+    transform:translate(-50%,-100%) rotate(38deg);border-radius:2px;
+  }
+  h1{font-family:'Oxanium',sans-serif;font-weight:800;font-size:1.55rem;letter-spacing:3px}
+  h1 span{color:var(--amber)}
+  .tagline{color:var(--ink-dim);font-size:.74rem;letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+  .status-chip{
+    font-family:'Share Tech Mono',monospace;font-size:.72rem;letter-spacing:1px;
+    border:1px solid var(--line);padding:8px 12px;border-radius:8px;color:var(--ink-dim);
+    background:var(--panel);display:flex;align-items:center;gap:8px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
+
+  /* Layout */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:840px){.grid{grid-template-columns:1fr}}
+
+  .panel{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:0 18px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.03);
+  }
+  .panel-h{
+    padding:13px 18px;border-bottom:1px solid var(--line);
+    display:flex;align-items:center;justify-content:space-between;
+    font-family:'Oxanium',sans-serif;font-weight:700;letter-spacing:2px;font-size:.82rem;
+    text-transform:uppercase;color:var(--ink-dim);
+  }
+  .panel-h .num{color:var(--amber);font-family:'Share Tech Mono',monospace}
+  .panel-b{padding:18px}
+
+  /* API Key Input */
+  .api-input{
+    width: 100%; padding: 12px; margin-bottom: 16px;
+    background: var(--bg); border: 1px solid var(--line);
+    color: var(--ink); border-radius: 9px;
+    font-family: 'Share Tech Mono', monospace; font-size: .85rem;
+  }
+  .api-input:focus{ outline: none; border-color: var(--amber); }
+
+  /* Tabs */
+  .tabs{display:flex;gap:8px;margin-bottom:16px}
+  .tab{
+    flex:1;padding:11px;border:1px solid var(--line);background:var(--panel);
+    color:var(--ink-dim);border-radius:9px;cursor:pointer;font-family:'Chakra Petch';
+    font-weight:600;letter-spacing:1px;font-size:.82rem;transition:.18s;text-transform:uppercase;
+  }
+  .tab:hover{border-color:var(--amber-dim);color:var(--ink)}
+  .tab.active{
+    background:linear-gradient(180deg,rgba(255,176,46,.16),rgba(255,176,46,.05));
+    border-color:var(--amber);color:var(--amber);
+    box-shadow:inset 0 0 18px rgba(255,176,46,.1);
+  }
+
+  /* Dropzone */
+  .drop{
+    border:2px dashed var(--line);border-radius:13px;padding:40px 18px;text-align:center;
+    cursor:pointer;transition:.2s;background:rgba(0,0,0,.18);
+  }
+  .drop:hover{border-color:var(--amber);background:rgba(255,176,46,.04)}
+  .drop.drag{border-color:var(--green);background:rgba(63,245,139,.06)}
+  .drop .ic{font-size:2.4rem;margin-bottom:10px;opacity:.8}
+  .drop p{color:var(--ink-dim);font-size:.86rem;line-height:1.5}
+  .drop b{color:var(--ink)}
+
+  /* Camera */
+  #camWrap{display:none}
+  video,#preview{
+    width:100%;border-radius:12px;border:1px solid var(--line);background:#000;
+    display:block;aspect-ratio:4/3;object-fit:cover;
+  }
+  .cam-row{display:flex;gap:10px;margin-top:14px}
+
+  /* Buttons */
+  .btn{
+    flex:1;padding:13px;border:none;border-radius:10px;cursor:pointer;
+    font-family:'Oxanium',sans-serif;font-weight:700;letter-spacing:1.5px;font-size:.84rem;
+    text-transform:uppercase;transition:.16s;color:#0a0c10;
+  }
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn-amber{background:linear-gradient(180deg,#ffce6b,#ffb02e)}
+  .btn-amber:not(:disabled):hover{box-shadow:0 0 22px rgba(255,176,46,.5)}
+  .btn-ghost{background:var(--panel);color:var(--ink-dim);border:1px solid var(--line)}
+  .btn-ghost:hover{color:var(--ink);border-color:var(--amber-dim)}
+  .btn-green{background:linear-gradient(180deg,#73ffb0,#3ff58b)}
+  .btn-green:not(:disabled):hover{box-shadow:0 0 22px rgba(63,245,139,.45)}
+
+  #preview{margin-top:4px}
+  .hidden{display:none!important}
+
+  /* ---- Readout panel ---- */
+  .gauge-stage{
+    position:relative;background:var(--carbon);border-radius:14px;border:1px solid var(--line);
+    padding:26px 18px 22px;text-align:center;overflow:hidden;
+  }
+  .gauge-stage::before{
+    content:"";position:absolute;inset:0;
+    background:radial-gradient(420px 220px at 50% 0%,rgba(255,176,46,.1),transparent);
+  }
+  .readout-label{
+    position:relative;font-family:'Oxanium',sans-serif;letter-spacing:4px;font-size:.7rem;
+    color:var(--ink-dim);text-transform:uppercase;margin-bottom:6px;
+  }
+  .readout{
+    position:relative;font-family:'Share Tech Mono',monospace;
+    font-size:clamp(2.6rem,10vw,4.4rem);line-height:1;color:var(--amber);
+    text-shadow:0 0 26px rgba(255,176,46,.4);font-variant-numeric:tabular-nums;
+    transition:color .3s;letter-spacing:2px;
+  }
+  .readout.live{color:var(--green);text-shadow:0 0 26px rgba(63,245,139,.4)}
+  .unit{
+    position:relative;font-family:'Oxanium',sans-serif;font-weight:700;letter-spacing:3px;
+    color:var(--ink-dim);font-size:1rem;margin-top:2px;
+  }
+
+  /* meta rows */
+  .meta{margin-top:16px;display:flex;flex-direction:column;gap:1px;border:1px solid var(--line);border-radius:11px;overflow:hidden}
+  .meta-row{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:11px 15px;background:var(--panel);font-size:.82rem;
+  }
+  .meta-row .k{color:var(--ink-dim);letter-spacing:1px;text-transform:uppercase;font-size:.72rem}
+  .meta-row .v{font-family:'Share Tech Mono',monospace;color:var(--ink)}
+  .badge{padding:3px 9px;border-radius:6px;font-size:.7rem;font-family:'Share Tech Mono',monospace;letter-spacing:.5px}
+  .badge.analog{background:rgba(255,176,46,.14);color:var(--amber);border:1px solid var(--amber-dim)}
+  .badge.digital{background:rgba(63,245,139,.12);color:var(--green);border:1px solid var(--green-dim)}
+  .badge.none{background:rgba(124,138,160,.12);color:var(--ink-dim);border:1px solid var(--line)}
+
+  /* confidence bar */
+  .conf-track{height:7px;width:120px;background:#0a0c10;border-radius:4px;overflow:hidden;border:1px solid var(--line)}
+  .conf-fill{height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--amber),var(--green));transition:width .5s}
+
+  /* empty / spinner */
+  .empty{padding:46px 18px;text-align:center;color:var(--ink-dim)}
+  .empty .big{font-family:'Share Tech Mono',monospace;font-size:3rem;color:var(--line)}
+  .spinner{
+    width:42px;height:42px;border-radius:50%;margin:0 auto 16px;
+    border:3px solid var(--line);border-top-color:var(--amber);animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .scan{color:var(--amber);font-family:'Share Tech Mono',monospace;letter-spacing:2px;font-size:.85rem;animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.4}}
+
+  .err{
+    background:rgba(255,77,77,.1);border:1px solid var(--red);color:#ffb3b3;
+    padding:12px 14px;border-radius:10px;font-size:.82rem;margin-top:14px;line-height:1.5;
+    word-break: break-word;
+  }
+
+  footer{margin-top:30px;text-align:center;color:var(--ink-dim);font-size:.72rem;letter-spacing:1px;line-height:1.6}
+  footer code{font-family:'Share Tech Mono',monospace;color:var(--amber-dim)}
+  .footdash{display:inline-block;width:30px;height:1px;background:var(--line);vertical-align:middle;margin:0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <h1>ODO<span>METRA</span></h1>
+        <div class="tagline">Odometer Vision Reader</div>
+      </div>
+    </div>
+    <div class="status-chip"><span class="dot"></span> VISION ENGINE ONLINE</div>
+  </header>
+
+  <div class="grid">
+
+    <section class="panel">
+      <div class="panel-h"><span>Input Source</span><span class="num">/ 01</span></div>
+      <div class="panel-b">
+
+        <input type="password" id="apiKey" class="api-input" placeholder="Enter Anthropic API Key (sk-ant-...)">
+
+        <div class="tabs">
+          <button class="tab active" id="tabUpload">Photo Upload</button>
+          <button class="tab" id="tabCam">Live Camera</button>
+        </div>
+
+        <div id="uploadWrap">
+          <div class="drop" id="drop">
+            <div class="ic">⬆</div>
+            <p><b>Drop an odometer image</b><br>or click to browse · JPG / PNG / WEBP</p>
+          </div>
+          <input type="file" id="file" accept="image/*" class="hidden">
+        </div>
+
+        <div id="camWrap">
+          <video id="video" autoplay playsinline muted></video>
+          <div class="cam-row">
+            <button class="btn btn-ghost" id="camStart">Start Camera</button>
+            <button class="btn btn-green" id="camShot" disabled>Capture</button>
+          </div>
+        </div>
+
+        <img id="preview" class="hidden" alt="preview">
+        <div class="cam-row hidden" id="analyzeRow">
+          <button class="btn btn-ghost" id="clearBtn">Clear</button>
+          <button class="btn btn-amber" id="analyzeBtn">Analyze Reading</button>
+        </div>
+
+        <div id="errBox"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-h"><span>Reading</span><span class="num">/ 02</span></div>
+      <div class="panel-b">
+
+        <div id="resultEmpty" class="empty">
+          <div class="big">— —</div>
+          <p style="margin-top:10px">Awaiting input.<br>Upload or capture an odometer to begin.</p>
+        </div>
+
+        <div id="resultLoading" class="empty hidden">
+          <div class="spinner"></div>
+          <div class="scan">ANALYZING IMAGE…</div>
+        </div>
+
+        <div id="resultBox" class="hidden">
+          <div class="gauge-stage">
+            <div class="readout-label" id="rLabel">Total Mileage</div>
+            <div class="readout" id="rValue">0</div>
+            <div class="unit" id="rUnit">KM</div>
+          </div>
+
+          <div class="meta">
+            <div class="meta-row">
+              <span class="k">Gauge Type</span>
+              <span class="badge none" id="mType">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="k">Confidence</span>
+              <span style="display:flex;align-items:center;gap:10px">
+                <span class="conf-track"><span class="conf-fill" id="mConfBar"></span></span>
+                <span class="v" id="mConf">0%</span>
+              </span>
+            </div>
+            <div class="meta-row">
+              <span class="k">Display Text</span>
+              <span class="v" id="mRaw">—</span>
+            </div>
+            <div class="meta-row">
+              <span class="k">Notes</span>
+              <span class="v" id="mNotes" style="max-width:60%;text-align:right">—</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <footer>
+    ODOMETRA reads total vehicle mileage from both mechanical-roller &amp; digital odometers via AI vision.
+    <span class="footdash"></span> Best results: clear, straight-on, well-lit shots.<br>
+    Powered by <code>Claude 3.5 Sonnet</code> vision · readings are estimates, verify before any official use.
+  </footer>
+</div>
+
+<canvas id="canvas" class="hidden"></canvas>
+
+<script>
+const $ = id => document.getElementById(id);
+
+let currentImageData = null;   
+let currentMime = 'image/jpeg';
+let stream = null;
+
+/* ---------- Tab switching ---------- */
+const tabUpload = $('tabUpload'), tabCam = $('tabCam');
+const uploadWrap = $('uploadWrap'), camWrap = $('camWrap');
+
+tabUpload.onclick = () => {
+  tabUpload.classList.add('active'); tabCam.classList.remove('active');
+  uploadWrap.style.display = 'block'; camWrap.style.display = 'none';
+  stopCamera(); resetPreview();
+};
+tabCam.onclick = () => {
+  tabCam.classList.add('active'); tabUpload.classList.remove('active');
+  uploadWrap.style.display = 'none'; camWrap.style.display = 'block';
+  resetPreview();
+};
+
+/* ---------- Upload handling ---------- */
+const drop = $('drop'), fileInput = $('file');
+drop.onclick = () => fileInput.click();
+['dragover','dragenter'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('drag'); }));
+['dragleave','drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('drag'); }));
+drop.addEventListener('drop', ev => { const f = ev.dataTransfer.files[0]; if (f) loadFile(f); });
+fileInput.onchange = e => { const f = e.target.files[0]; if (f) loadFile(f); };
+
+function loadFile(file){
+  if (!file.type.startsWith('image/')) { showErr('That file is not an image.'); return; }
+  clearErr();
+  const reader = new FileReader();
+  reader.onload = e => {
+    const dataUrl = e.target.result;
+    currentMime = file.type;
+    currentImageData = dataUrl.split(',')[1];
+    showPreview(dataUrl);
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ---------- Camera handling ---------- */
+const video = $('video'), camStart = $('camStart'), camShot = $('camShot'), canvas = $('canvas');
+
+camStart.onclick = async () => {
+  try{
+    clearErr();
+    stream = await navigator.mediaDevices.getUserMedia({
+      video:{ facingMode:'environment', width:{ideal:1280}, height:{ideal:960} }, audio:false
+    });
+    video.srcObject = stream;
+    camShot.disabled = false;
+    camStart.textContent = 'Camera Active';
+  }catch(err){
+    showErr('Camera access denied or unavailable. ' + err.message);
+  }
+};
+
+function grabFrame(){
+  if (!video.videoWidth) return null;
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video,0,0);
+  const dataUrl = canvas.toDataURL('image/jpeg',0.9);
+  currentMime = 'image/jpeg';
+  currentImageData = dataUrl.split(',')[1];
+  return dataUrl;
+}
+
+camShot.onclick = () => {
+  const dataUrl = grabFrame();
+  if (dataUrl){ showPreview(dataUrl); }
+};
+
+function stopCamera(){
+  if (stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  camShot.disabled = true; camStart.textContent = 'Start Camera';
+}
+
+/* ---------- Preview & reset ---------- */
+const preview = $('preview'), analyzeRow = $('analyzeRow');
+function showPreview(dataUrl){
+  preview.src = dataUrl; preview.classList.remove('hidden');
+  analyzeRow.classList.remove('hidden');
+}
+function resetPreview(){
+  preview.classList.add('hidden'); preview.src='';
+  analyzeRow.classList.add('hidden');
+  currentImageData=null;
+}
+$('clearBtn').onclick = () => { resetPreview(); clearErr(); showEmpty(); };
+
+/* ---------- Result UI states ---------- */
+const resultEmpty=$('resultEmpty'), resultLoading=$('resultLoading'), resultBox=$('resultBox');
+function showEmpty(){ resultEmpty.classList.remove('hidden'); resultLoading.classList.add('hidden'); resultBox.classList.add('hidden'); }
+function showLoading(){ resultEmpty.classList.add('hidden'); resultLoading.classList.remove('hidden'); resultBox.classList.add('hidden'); }
+function showResult(){ resultEmpty.classList.add('hidden'); resultLoading.classList.add('hidden'); resultBox.classList.remove('hidden'); }
+
+function showErr(msg){ $('errBox').innerHTML = '<div class="err">⚠ '+msg+'</div>'; }
+function clearErr(){ $('errBox').innerHTML=''; }
+
+/* ---------- Analyze via Claude vision ---------- */
+$('analyzeBtn').onclick = () => analyze();
+
+async function analyze(){
+  const apiKey = $('apiKey').value.trim();
+  if (!apiKey) { showErr('Please enter your Anthropic API Key at the top first.'); return; }
+  if (!currentImageData){ showErr('No image to analyze.'); return; }
+  
+  clearErr();
+  showLoading();
+
+  const prompt =
+`You are a precise ODOMETER-reading vision system. Report the vehicle's TOTAL lifetime mileage (the main ODO reading).
+
+What to read:
+- The TOTAL odometer / total mileage number (lifetime distance). This is usually the longest number, 5 to 7 digits.
+- IGNORE the speedometer (current speed), tachometer/RPM, fuel, temperature, clock, and trip meters (TRIP / TRIP A / TRIP B / Trip / daily counters). Trip meters are shorter and often have a decimal. If a value is labeled TRIP or is clearly resettable, do NOT report it.
+- If both ODO and TRIP are visible, report ODO only.
+
+How to read each style:
+- MECHANICAL ROLLER (physical number wheels): read left to right. If a digit is mid-rotation (a wheel caught between two numbers), choose the LOWER of the two numbers, since the higher hasn't fully arrived. The right-most wheel is often a tenths digit and may be a different color (e.g. white on black) — include it only if it is clearly part of the same odometer.
+- DIGITAL LCD/LED: read the exact digits. Watch for a small decimal (tenths of a km/mile). Faint/partially-lit segments still count.
+
+Unit:
+- Determine km or miles from any visible text ("km", "mi", "MILES", "TOTAL"). If not shown, set unit "unknown".
+
+If no total odometer reading is visible or legible, set value to null.
+
+Respond with ONLY a JSON object, no markdown, no extra text:
+{
+  "value": <number or null>,
+  "unit": "<km | miles | unknown>",
+  "type": "<mechanical | digital | none>",
+  "confidence": <0-100 integer>,
+  "raw_text": "<the exact digits you read, including any decimal>",
+  "notes": "<brief note: mid-rotation digit, glare, ignored trip meter, etc. max 12 words>"
+}`;
+
+  try{
+    // Using a CORS proxy because Anthropic blocks direct browser API calls
+    const proxyUrl = "https://corsproxy.io/?https://api.anthropic.com/v1/messages";
+    
+    const res = await fetch(proxyUrl, {
+      method:"POST",
+      headers:{ 
+        "Content-Type":"application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model:"claude-3-5-sonnet-20241022",
+        max_tokens:1000,
+        messages:[{
+          role:"user",
+          content:[
+            { type:"image", source:{ type:"base64", media_type:currentMime, data:currentImageData } },
+            { type:"text", text:prompt }
+          ]
+        }]
+      })
+    });
+
+    if (!res.ok){ throw new Error('API returned '+res.status + ' - Check your API Key.'); }
+    const data = await res.json();
+    const text = (data.content||[]).map(b=>b.type==='text'?b.text:'').join('').trim();
+    const clean = text.replace(/```json|```/g,'').trim();
+    let parsed;
+    try{ parsed = JSON.parse(clean); }
+    catch(e){
+      const m = clean.match(/\{[\s\S]*\}/);
+      if (m) parsed = JSON.parse(m[0]); else throw new Error('Could not parse model response.');
+    }
+    render(parsed);
+  }catch(err){
+    showEmpty();
+    showErr('Analysis failed: '+err.message);
+  }
+}
+
+/* ---------- Render result ---------- */
+function render(r){
+  showResult();
+  const rValue=$('rValue'), rUnit=$('rUnit'), rLabel=$('rLabel');
+
+  if (r.value === null || r.value === undefined || r.type === 'none'){
+    rValue.textContent = '––––––';
+    rLabel.textContent = 'No Reading Detected';
+  } else {
+    const v = Number(r.value);
+    const formatted = Number.isInteger(v)
+      ? v.toLocaleString('en-US')
+      : v.toLocaleString('en-US',{minimumFractionDigits:1,maximumFractionDigits:1});
+    rValue.textContent = formatted;
+    rLabel.textContent = 'Total Mileage';
+  }
+
+  rUnit.textContent = (r.unit||'unknown').toUpperCase();
+
+  const mType=$('mType');
+  const t = r.type || 'none';
+  mType.textContent = t.toUpperCase();
+  mType.className = 'badge ' + (t==='mechanical'?'analog':t==='digital'?'digital':'none');
+
+  const conf = Math.max(0, Math.min(100, parseInt(r.confidence)||0));
+  $('mConf').textContent = conf+'%';
+  $('mConfBar').style.width = conf+'%';
+
+  $('mRaw').textContent = r.raw_text ? r.raw_text : '—';
+  $('mNotes').textContent = r.notes ? r.notes : '—';
+}
+
+/* cleanup on unload */
+window.addEventListener('beforeunload', () => { stopCamera(); });
+</script>
+</body>
+</html>
